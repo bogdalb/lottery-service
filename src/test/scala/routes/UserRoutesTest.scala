@@ -19,8 +19,8 @@ import scala.util.Success
 
 class UserRoutesTest extends AnyWordSpec with Matchers with ScalaFutures with ScalatestRouteTest with MockFactory with JsonSupport {
 
-  val adminToken = "AdminToken"
-  val userToken = "UserToken"
+  val adminToken = "Bearer AdminToken"
+  val userToken = "Bearer UserToken"
 
   val mockService = mock[UserService]
   val mockJwtAuthService: JwtAuth = mock[JwtAuth]
@@ -95,7 +95,7 @@ class UserRoutesTest extends AnyWordSpec with Matchers with ScalaFutures with Sc
       (mockJwtAuthService.decodeToken _).expects(adminToken).returning(Success((UUID.randomUUID(), "admin")))
       (mockService.listUsers _).expects(100, 0).returning(Future.successful(Right(users)))
 
-      Get("/users/list?limit=100&offset=0") ~> addHeader("Authorization", s"Bearer $adminToken") ~> userRoutes.routes ~> check {
+      Get("/users/list?limit=100&offset=0") ~> addHeader("Authorization", adminToken) ~> userRoutes.routes ~> check {
         status shouldBe OK
         responseAs[Seq[User]] shouldEqual users
       }
@@ -105,7 +105,7 @@ class UserRoutesTest extends AnyWordSpec with Matchers with ScalaFutures with Sc
       (mockJwtAuthService.decodeToken _).expects(adminToken).returning(Success((UUID.randomUUID(), "admin")))
       (mockService.listUsers _).expects(100, 0).returning(Future.successful(Left(ErrorResponse("Failed to list users"))))
 
-      Get("/users/list?limit=100&offset=0") ~> addHeader("Authorization", s"Bearer $adminToken") ~> userRoutes.routes ~> check {
+      Get("/users/list?limit=100&offset=0") ~> addHeader("Authorization", adminToken) ~> userRoutes.routes ~> check {
         status shouldBe OK
         responseAs[ErrorResponse].error shouldEqual "Failed to list users"
       }
@@ -115,7 +115,7 @@ class UserRoutesTest extends AnyWordSpec with Matchers with ScalaFutures with Sc
       (mockJwtAuthService.decodeToken _).expects(userToken).returning(Success((UUID.randomUUID(), "user")))
 
 
-      Get("/users/list?limit=100&offset=0") ~> addHeader("Authorization", s"Bearer $userToken") ~> userRoutes.routes ~> check {
+      Get("/users/list?limit=100&offset=0") ~> addHeader("Authorization", userToken) ~> userRoutes.routes ~> check {
         status shouldBe Forbidden
       }
     }

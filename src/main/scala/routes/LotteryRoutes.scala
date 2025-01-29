@@ -38,10 +38,27 @@ class LotteryRoutes(
   val routes: Route =
     pathPrefix("lotteries") {
       concat(
-        post {
-          authorizeRoles(Set("admin")) {
-            entity(as[СreateLotteryRequest]) { lottery =>
-              complete(service.addLottery(lottery))
+        pathEndOrSingleSlash {
+          post {
+            authorizeRoles(Set("admin")) {
+              entity(as[СreateLotteryRequest]) { lottery =>
+                complete(service.addLottery(lottery))
+              }
+            }
+          }
+        },
+        path("ballots" / "add") {
+          post {
+            authorizeRoles(Set("user")) {
+              extractToken { token =>
+                onSuccess(Future.successful(jwtAuth.decodeToken(token))) {
+                  case Success((userId, _)) =>
+                    entity(as[SubmitBallotsRequest]) { request =>
+                      complete(service.addBallotsToLottery(request.lotteryId, userId, request.ballotsNumber))
+                    }
+                  case Failure(_) => complete(StatusCodes.Unauthorized, "Invalid token")
+                }
+              }
             }
           }
         },
@@ -60,22 +77,8 @@ class LotteryRoutes(
                 }
               }
             }
-        },
-        post {
-          path("ballots" / "add") {
-            authorizeRoles(Set("user")) {
-              extractToken { token =>
-                onSuccess(Future.successful(jwtAuth.decodeToken(token))) {
-                  case Success((userId, _)) =>
-                    entity(as[SubmitBallotsRequest]) { request =>
-                      complete(service.addBallotsToLottery(request.lotteryId, userId, request.ballotsNumber))
-                    }
-                  case Failure(_) => complete(StatusCodes.Unauthorized, "Invalid token")
-                }
-              }
-            }
-          }
         }
       )
     }
+
 }

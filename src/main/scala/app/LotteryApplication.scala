@@ -21,16 +21,10 @@ import scala.util.{Failure, Success}
 object LotteryApplication extends App with DatabaseModule with LazyLogging {
   implicit val system: ActorSystem = ActorSystem("lottery-service")
   implicit val executionContext: ExecutionContextExecutor = system.dispatcher
-  println(1)
   private val config: Config = ConfigFactory.load()
-  println(2)
 
   val jwtAuthService = JwtAuthImpl(JwtAuthConfiguration.fromConfig(config))
-  println(3)
-
   val db: slick.jdbc.SQLiteProfile.backend.Database = Database.forConfig("sqlite")
-  println(4)
-
 
   val (lotteryRepo, ballotRepo, userRepo) = initializeRepositories()
 

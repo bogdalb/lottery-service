@@ -15,8 +15,8 @@ object UserRole {
   }
 
   def toString(role: UserRole): String = role match {
-    case Admin => "Admin"
-    case User => "User"
+    case Admin => "admin"
+    case User => "user"
   }
 
   implicit val userRoleEncoder: Encoder[UserRole] = Encoder.encodeString.contramap(_.toString)

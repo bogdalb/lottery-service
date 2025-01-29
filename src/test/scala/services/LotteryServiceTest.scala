@@ -240,12 +240,37 @@ class LotteryServiceTest extends AnyWordSpec with Matchers with ScalaFutures wit
 
         val closingLottery = lottery.copy(status = LotteryStatus.Closing)
 
+        (ballotRepo.count _).expects(lottery.id, None).returning(Future.successful(5))
         (lotteryRepo.getLotteryById _).expects(lotteryId).returning(Future.successful(Some(closingLottery)))
         (ballotRepo.getRandom _).expects(lotteryId).returning(Future.successful(Some(ballot)))
         (lotteryRepo.updateLotteryStatus _).expects(lotteryId, LotteryStatus.Closed, Some(ballot.id)).returning(Future.successful(1))
 
         whenReady(lotteryService.calculateLotteryResult(lotteryId)) { result =>
           result shouldBe Right(lottery.copy(status = LotteryStatus.Closed, winnerBallot = Some(ballot.id)))
+        }
+      }
+
+      "fail if cannot update the lottery status" in {
+
+        val closingLottery = lottery.copy(status = LotteryStatus.Closing)
+
+        (ballotRepo.count _).expects(lottery.id, None).returning(Future.successful(5))
+        (lotteryRepo.getLotteryById _).expects(lotteryId).returning(Future.successful(Some(closingLottery)))
+        (ballotRepo.getRandom _).expects(lotteryId).returning(Future.successful(Some(ballot)))
+        (lotteryRepo.updateLotteryStatus _).expects(lotteryId, LotteryStatus.Closed, Some(ballot.id)).returning(Future.successful(0))
+
+        whenReady(lotteryService.calculateLotteryResult(lotteryId)) { result =>
+          result shouldBe Left(ErrorResponse("Failed to update lottery status"))
+        }
+      }
+
+      "fail and close lottery due Closed due to absence of ballots" in {
+
+        (ballotRepo.count _).expects(lottery.id, None).returning(Future.successful(0))
+        (lotteryRepo.updateLotteryStatus _).expects(lotteryId, LotteryStatus.Closed, None).returning(Future.successful(1))
+
+        whenReady(lotteryService.calculateLotteryResult(lotteryId)) { result =>
+          result shouldBe Left(ErrorResponse("Closed due to absence of ballots"))
         }
       }
     }

@@ -10,8 +10,7 @@ trait Authorizer {
     optionalHeaderValueByName("Authorization") {
       case Some(authorizationHeader) =>
         if (authorizationHeader.startsWith("Bearer ")) {
-          val token = authorizationHeader.stripPrefix("Bearer ").trim
-          jwtAuth.decodeToken(token) match {
+          jwtAuth.decodeToken(authorizationHeader) match {
             case Success((_, role)) if allowedRoles.contains(role) =>
               route
             case _ => complete((403, "Forbidden: insufficient permissions"))

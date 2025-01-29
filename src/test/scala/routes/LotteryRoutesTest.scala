@@ -8,7 +8,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import services.LotteryService
 import auth.JwtAuth
-import models.dto.{СreateLotteryRequest, СreateLotteryResponse}
+import models.dto.{SubmitBallotsRequest, СreateLotteryRequest, СreateLotteryResponse}
 import org.scalamock.scalatest.MockFactory
 import utils.JsonSupport
 import models.{Lottery, LotteryStatus}
@@ -25,9 +25,9 @@ class LotteryRoutesTest extends AnyWordSpec with Matchers with ScalaFutures with
   val mockLotteryService: LotteryService = mock[LotteryService]
   val mockJwtAuthService: JwtAuth = mock[JwtAuth]
 
-  val adminToken = "AdminToken"
-  val userToken =  "UserToken"
-  val invalidToken = "InvalidToken"
+  val adminToken = "Bearer AdminToken"
+  val userToken =  "Bearer UserToken"
+  val invalidToken = "Bearer InvalidToken"
 
   val lotteryRoutes: Route = new LotteryRoutes(mockLotteryService, mockJwtAuthService)(ExecutionContext.global).routes
 
@@ -37,77 +37,135 @@ class LotteryRoutesTest extends AnyWordSpec with Matchers with ScalaFutures with
   val lottery = Lottery(lotteryId, LocalDate.now(), LotteryStatus.Active, None)
   val createLotteryRequest = СreateLotteryRequest(lottery.drawDate)
   val createLotteryResponse = СreateLotteryResponse(lottery.id)
+  val submitBallotsRequest = SubmitBallotsRequest(lotteryId, 5)
+  val ballotIds = Seq.fill(submitBallotsRequest.ballotsNumber)(UUID.randomUUID())
+  val userId = UUID.randomUUID()
 
   "LotteryRoutes" should {
 
-    "allow admin to create a lottery" in {
-      (mockJwtAuthService.decodeToken _).expects(adminToken).returning(Success((UUID.randomUUID(), "admin")))
-      (mockLotteryService.addLottery _).expects(*).returning(Future.successful(Right(createLotteryResponse)))
+    "POST /lotteries " should {
 
-      Post("/lotteries", createLotteryRequest) ~> addHeader("Authorization", s"Bearer $adminToken") ~> lotteryRoutes ~> check {
-        status shouldBe OK
-        responseAs[СreateLotteryResponse] shouldBe createLotteryResponse
+      "allow admin to create a lottery" in {
+        (mockJwtAuthService.decodeToken _).expects(adminToken).returning(Success((UUID.randomUUID(), "admin")))
+        (mockLotteryService.addLottery _).expects(*).returning(Future.successful(Right(createLotteryResponse)))
+
+        Post("/lotteries", createLotteryRequest) ~> addHeader("Authorization", adminToken) ~> lotteryRoutes ~> check {
+          status shouldBe OK
+          responseAs[СreateLotteryResponse] shouldBe createLotteryResponse
+        }
+      }
+
+      "deny non-admin users to create a lottery" in {
+        (mockJwtAuthService.decodeToken _).expects(userToken).returning(Success((UUID.randomUUID(), "user")))
+
+        Post("/lotteries", createLotteryRequest) ~> addHeader("Authorization", userToken) ~> lotteryRoutes ~> check {
+          status shouldBe Forbidden
+        }
       }
     }
 
-    "deny non-admin users to create a lottery" in {
-      (mockJwtAuthService.decodeToken _).expects(userToken).returning(Success((UUID.randomUUID(), "user")))
+    "GET /lotteries" should {
 
-      Post("/lotteries", createLotteryRequest) ~> addHeader("Authorization", s"Bearer $userToken") ~> lotteryRoutes ~> check {
-        status shouldBe Forbidden
+      "allow admin or user to get lotteries with status filter" in {
+
+        val lottery1 = Lottery(UUID.randomUUID(), LocalDate.now(), LotteryStatus.Active, None)
+        val lottery2 = Lottery(UUID.randomUUID(), LocalDate.now(), LotteryStatus.Active, None)
+
+        (mockJwtAuthService.decodeToken _).expects(adminToken).returning(Success((UUID.randomUUID(), "admin")))
+        (mockLotteryService.listLotteries _).expects(Some(LotteryStatus.Active), None).returning(Future.successful(Right(Seq(lottery1, lottery2))))
+
+        Get("/lotteries?status=Active") ~> addHeader("Authorization", adminToken) ~> lotteryRoutes ~> check {
+          status shouldBe OK
+          responseAs[Seq[Lottery]] shouldBe Seq(lottery1, lottery2)
+        }
+
+        (mockJwtAuthService.decodeToken _).expects(userToken).returning(Success((UUID.randomUUID(), "user")))
+        (mockLotteryService.listLotteries _).expects(Some(LotteryStatus.Active), None).returning(Future.successful(Right(Seq(lottery1, lottery2))))
+
+        Get("/lotteries?status=Active") ~> addHeader("Authorization", userToken) ~> lotteryRoutes ~> check {
+          status shouldBe OK
+        }
       }
     }
 
-    "allow admin or user to get lotteries with status filter" in {
+    "GET /lotteries/:id" should {
 
-      val lottery1 = Lottery(UUID.randomUUID(), LocalDate.now(), LotteryStatus.Active, None)
-      val lottery2 = Lottery(UUID.randomUUID(), LocalDate.now(), LotteryStatus.Active, None)
+      "allow admin or user to get lottery by id" in {
+        (mockJwtAuthService.decodeToken _).expects(adminToken).returning(Success((UUID.randomUUID(), "admin")))
+        (mockLotteryService.getLotteryById _).expects(lotteryId).returning(Future.successful(Right(lottery)))
 
-      (mockJwtAuthService.decodeToken _).expects(adminToken).returning(Success((UUID.randomUUID(), "admin")))
-      (mockLotteryService.listLotteries _).expects(Some(LotteryStatus.Active), None).returning(Future.successful(Right(Seq(lottery1, lottery2))))
+        Get(s"/lotteries/$lotteryId") ~> addHeader("Authorization", adminToken) ~> lotteryRoutes ~> check {
+          status shouldBe OK
+          responseAs[Lottery] shouldBe lottery
+        }
 
-      Get("/lotteries?status=Active") ~> addHeader("Authorization", s"Bearer $adminToken") ~> lotteryRoutes ~> check {
-        status shouldBe OK
-        responseAs[Seq[Lottery]] shouldBe Seq(lottery1, lottery2)
+        (mockJwtAuthService.decodeToken _).expects(userToken).returning(Success((UUID.randomUUID(), "user")))
+        (mockLotteryService.getLotteryById _).expects(lotteryId).returning(Future.successful(Right(lottery)))
+
+        Get(s"/lotteries/$lotteryId") ~> addHeader("Authorization", userToken) ~> lotteryRoutes ~> check {
+          status shouldBe OK
+          responseAs[Lottery] shouldBe lottery
+        }
       }
 
-      (mockJwtAuthService.decodeToken _).expects(userToken).returning(Success((UUID.randomUUID(), "user")))
-      (mockLotteryService.listLotteries _).expects(Some(LotteryStatus.Active), None).returning(Future.successful(Right(Seq(lottery1, lottery2))))
+      "deny access to get lottery by id without valid token" in {
+        Get(s"/lotteries/$lotteryId") ~> lotteryRoutes ~> check {
+          status shouldBe Unauthorized
+        }
 
-      Get("/lotteries?status=Active") ~> addHeader("Authorization", s"Bearer $userToken") ~> lotteryRoutes ~> check {
-        status shouldBe OK
-      }
-    }
+        (mockJwtAuthService.decodeToken _).expects(invalidToken).returning(Failure(new IllegalArgumentException(new RuntimeException)))
 
-    "allow admin or user to get lottery by id" in {
-
-      (mockJwtAuthService.decodeToken _).expects(adminToken).returning(Success((UUID.randomUUID(), "admin")))
-      (mockLotteryService.getLotteryById _).expects(lotteryId).returning(Future.successful(Right(lottery)))
-
-      Get(s"/lotteries/$lotteryId") ~> addHeader("Authorization", s"Bearer $adminToken") ~> lotteryRoutes ~> check {
-        status shouldBe OK
-        responseAs[Lottery] shouldBe lottery
-      }
-
-      (mockJwtAuthService.decodeToken _).expects(userToken).returning(Success((UUID.randomUUID(), "user")))
-      (mockLotteryService.getLotteryById _).expects(lotteryId).returning(Future.successful(Right(lottery)))
-
-      Get(s"/lotteries/$lotteryId") ~> addHeader("Authorization", s"Bearer $userToken") ~> lotteryRoutes ~> check {
-        status shouldBe OK
-        responseAs[Lottery] shouldBe lottery
+        Get(s"/lotteries/$lotteryId") ~> addHeader("Authorization", invalidToken) ~> lotteryRoutes ~> check {
+          status shouldBe Forbidden
+        }
       }
     }
 
-    "deny access to get lottery by id without valid token" in {
-      Get(s"/lotteries/$lotteryId") ~> lotteryRoutes ~> check {
-        status shouldBe Unauthorized
+    "POST /lotteries/ballots/add" should {
+
+      "allow user to add ballots to a lottery" in {
+        (mockJwtAuthService.decodeToken _).expects(userToken).returning(Success((userId, "user")))
+        (mockJwtAuthService.decodeToken _).expects(userToken).returning(Success((userId, "user")))
+        (mockLotteryService.addBallotsToLottery _).expects(lotteryId, userId, submitBallotsRequest.ballotsNumber).returning(Future.successful(Right(ballotIds)))
+
+        Post("/lotteries/ballots/add", submitBallotsRequest) ~> addHeader("Authorization", userToken) ~> lotteryRoutes ~> check {
+          status shouldBe OK
+        }
       }
 
-      (mockJwtAuthService.decodeToken _).expects(invalidToken).returning(Failure(new IllegalArgumentException(new RuntimeException)))
+      "deny adding ballots with invalid token" in {
+        (mockJwtAuthService.decodeToken _).expects(invalidToken).returning(Failure(new IllegalArgumentException("Invalid token")))
 
-      Get(s"/lotteries/$lotteryId") ~> addHeader("Authorization", s"Bearer $invalidToken") ~> lotteryRoutes ~> check {
-        status shouldBe Forbidden
+        Post("/lotteries/ballots/add", submitBallotsRequest) ~> addHeader("Authorization", invalidToken) ~> lotteryRoutes ~> check {
+          status shouldBe Forbidden
+        }
+      }
+    }
+
+    "GET /lotteries with drawDate filter" should {
+
+      "allow admin or user to filter lotteries by drawDate" in {
+        val drawDate = LocalDate.now()
+        val lottery1 = Lottery(UUID.randomUUID(), drawDate, LotteryStatus.Active, None)
+        val lottery2 = Lottery(UUID.randomUUID(), drawDate, LotteryStatus.Closed, None)
+
+        (mockJwtAuthService.decodeToken _).expects(adminToken).returning(Success((UUID.randomUUID(), "admin")))
+        (mockLotteryService.listLotteries _).expects(None, Some(drawDate)).returning(Future.successful(Right(Seq(lottery1, lottery2))))
+
+        Get(s"/lotteries?drawDate=$drawDate") ~> addHeader("Authorization", adminToken) ~> lotteryRoutes ~> check {
+          status shouldBe OK
+          responseAs[Seq[Lottery]] shouldBe Seq(lottery1, lottery2)
+        }
+
+        (mockJwtAuthService.decodeToken _).expects(userToken).returning(Success((UUID.randomUUID(), "user")))
+        (mockLotteryService.listLotteries _).expects(None, Some(drawDate)).returning(Future.successful(Right(Seq(lottery1, lottery2))))
+
+        Get(s"/lotteries?drawDate=$drawDate") ~> addHeader("Authorization", userToken) ~> lotteryRoutes ~> check {
+          status shouldBe OK
+          responseAs[Seq[Lottery]] shouldBe Seq(lottery1, lottery2)
+        }
       }
     }
   }
+
 }

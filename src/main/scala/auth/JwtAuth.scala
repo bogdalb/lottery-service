@@ -30,9 +30,10 @@ case class JwtAuthImpl(config: JwtAuthConfiguration) extends JwtAuth {
 
   override def decodeToken(token: String): Try[(UUID, String)] = {
     Try {
+      val tokenTrimmed = token.stripPrefix("Bearer ").trim
       val decodedJWT = JWT.require(algorithm)
         .build()
-        .verify(token)
+        .verify(tokenTrimmed)
 
       val userId = UUID.fromString(decodedJWT.getSubject)
       val role = decodedJWT.getClaim("role").asString()

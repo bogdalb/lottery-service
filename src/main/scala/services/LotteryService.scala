@@ -97,24 +97,47 @@ class LotteryService(
   }
 
   def calculateLotteryResult(lotteryId: UUID): Future[Either[ErrorResponse, Lottery]] = {
-    lotteryRepo.getLotteryById(lotteryId).flatMap {
-      case Some(lottery) if lottery.status == LotteryStatus.Closing =>
-        ballotRepo.getRandom(lotteryId).flatMap {
-          case Some(winnerBallot) =>
-            lotteryRepo.updateLotteryStatus(lotteryId, LotteryStatus.Closed, Some(winnerBallot.id)).map {
-              case 1 => Right(lottery.copy(status = LotteryStatus.Closed, winnerBallot = Some(winnerBallot.id)))
-              case _ => Left(ErrorResponse("Failed to update lottery status"))
-            }
-          case None =>
-            Future.successful(Left(ErrorResponse("No winner found for the lottery")))
-        }
-      case Some(_) =>
-        Future.successful(Left(ErrorResponse("Lottery must be in 'Closing' status to calculate the result")))
-      case None =>
-        Future.successful(Left(ErrorResponse("Lottery not found")))
+    ballotRepo.count(lotteryId, None).flatMap {
+      case ballotsAmount if ballotsAmount > 0 =>
+        processLotteryWithBallots(lotteryId)
+      case _ =>
+        closeLotteryWithoutBallots(lotteryId)
     }.recover {
       case _ => Left(ErrorResponse("Error occurred while calculating lottery result"))
     }
   }
+
+  private def processLotteryWithBallots(lotteryId: UUID): Future[Either[ErrorResponse, Lottery]] = {
+    lotteryRepo.getLotteryById(lotteryId).flatMap {
+      case Some(lottery) if lottery.status == LotteryStatus.Closing =>
+        selectWinnerAndUpdateStatus(lotteryId, lottery)
+      case Some(_) =>
+        Future.successful(Left(ErrorResponse("Lottery must be in 'Closing' status to calculate the result")))
+      case None =>
+        Future.successful(Left(ErrorResponse("Lottery not found")))
+    }
+  }
+
+  private def selectWinnerAndUpdateStatus(lotteryId: UUID, lottery: Lottery): Future[Either[ErrorResponse, Lottery]] = {
+    ballotRepo.getRandom(lotteryId).flatMap {
+      case Some(winnerBallot) =>
+        lotteryRepo.updateLotteryStatus(lotteryId, LotteryStatus.Closed, Some(winnerBallot.id)).map {
+          case 1 =>
+            Right(lottery.copy(status = LotteryStatus.Closed, winnerBallot = Some(winnerBallot.id)))
+          case _ =>
+            Left(ErrorResponse("Failed to update lottery status"))
+        }
+      case None =>
+        Future.successful(Left(ErrorResponse("No winner found for the lottery")))
+    }
+  }
+
+  private def closeLotteryWithoutBallots(lotteryId: UUID): Future[Either[ErrorResponse, Lottery]] = {
+    lotteryRepo.updateLotteryStatus(lotteryId, LotteryStatus.Closed, None).map {
+      case 1 => Left(ErrorResponse("Closed due to absence of ballots"))
+      case _ => Left(ErrorResponse("Failed to update lottery status"))
+    }
+  }
+
 
 }
