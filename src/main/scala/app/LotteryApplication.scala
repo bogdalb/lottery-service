@@ -22,55 +22,52 @@ object LotteryApplication extends App with DatabaseModule {
   implicit val executionContext: ExecutionContextExecutor = system.dispatcher
 
   val db: slick.jdbc.SQLiteProfile.backend.Database = Database.forConfig("sqlite")
-
   private val config: Config = ConfigFactory.load()
-
 
   val jwtAuthService = JwtAuthImpl(JwtAuthConfiguration.fromConfig(config))
 
-  val lotteryTable = new LotteryTable(profile)
-  lotteryTable.createTableIfNotExists(db).onComplete {
-    case scala.util.Success(_) =>
-      println("Lottery tables were successfully created or already exist.")
-    case scala.util.Failure(exception) =>
-      println(s"Error creating Lottery tables: ${exception.getMessage}")
-  }
-  val lotteryRepo = new SlickLotteryRepository(db, lotteryTable)
-
-  val ballotTable = new BallotTable(profile)
-  ballotTable.createTableIfNotExists(db).onComplete {
-    case scala.util.Success(_) =>
-      println("Lottery tables were successfully created or already exist.")
-    case scala.util.Failure(exception) =>
-      println(s"Error creating Lottery tables: ${exception.getMessage}")
-  }
-  val ballotRepo = new SlickBallotRepository(db, ballotTable)
+  val (lotteryRepo, ballotRepo, userRepo) = initializeRepositories()
 
   val lotteryService = new LotteryService(lotteryRepo, ballotRepo)
-  val lotteryRoutes = new LotteryRoutes(lotteryService, jwtAuthService)
-
-  val userTable = new UserTable(profile)
-  userTable.createTableIfNotExists(db).onComplete {
-    case scala.util.Success(_) =>
-      println("User tables were successfully created or already exist.")
-    case scala.util.Failure(exception) =>
-      println(s"Error creating User tables: ${exception.getMessage}")
-  }
-  val userRepo = new SlickUserRepository(db, userTable)
   val userService = new UserService(userRepo, jwtAuthService)
+
+  val lotteryRoutes = new LotteryRoutes(lotteryService, jwtAuthService)
   val userRoutes = new UserRoutes(userService, jwtAuthService)
 
   val scheduler = new LotteryScheduler(lotteryService)
   scheduler.startScheduler()
 
-
   val allRoutes = lotteryRoutes.routes ~ userRoutes.routes
+  startServer(allRoutes)
 
-  val serverBinding = Http().bindAndHandle(allRoutes, "localhost", 8080)
-  serverBinding.onComplete {
-    case Success(_) => println("Server started at http://localhost:8080")
-    case Failure(exception) => println(s"Failed to start server: ${exception.getMessage}")
+  private def initializeRepositories(): (SlickLotteryRepository, SlickBallotRepository, SlickUserRepository) = {
+    val lotteryTable = new LotteryTable(profile)
+    createTableIfNotExists("Lottery", lotteryTable.createTableIfNotExists(db))
+    val lotteryRepo = new SlickLotteryRepository(db, lotteryTable)
+
+    val ballotTable = new BallotTable(profile)
+    createTableIfNotExists("Ballot", ballotTable.createTableIfNotExists(db))
+    val ballotRepo = new SlickBallotRepository(db, ballotTable)
+
+    val userTable = new UserTable(profile)
+    createTableIfNotExists("User", userTable.createTableIfNotExists(db))
+    val userRepo = new SlickUserRepository(db, userTable)
+
+    (lotteryRepo, ballotRepo, userRepo)
   }
 
+  private def createTableIfNotExists(tableName: String, creationAction: => scala.concurrent.Future[Unit]): Unit = {
+    creationAction.onComplete {
+      case Success(_) => println(s"$tableName tables were successfully created or already exist.")
+      case Failure(exception) => println(s"Error creating $tableName tables: ${exception.getMessage}")
+    }
+  }
 
+  private def startServer(routes: akka.http.scaladsl.server.Route): Unit = {
+    val serverBinding = Http().bindAndHandle(routes, "localhost", 8080)
+    serverBinding.onComplete {
+      case Success(_) => println("Server started at http://localhost:8080")
+      case Failure(exception) => println(s"Failed to start server: ${exception.getMessage}")
+    }
+  }
 }
