@@ -5,8 +5,7 @@ import slick.jdbc.JdbcProfile
 
 import java.time.LocalDateTime
 import java.util.UUID
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class BallotTable(val profile: JdbcProfile) {
   import profile.api._
@@ -26,7 +25,7 @@ class BallotTable(val profile: JdbcProfile) {
 
   val ballots = TableQuery[Ballots]
 
-  def indexExists(db: JdbcProfile#Backend#Database, indexName: String): Future[Boolean] = {
+  def indexExists(db: JdbcProfile#Backend#Database, indexName: String)(implicit ec: ExecutionContext): Future[Boolean] = {
     val checkIndexQuery = sql"""
       SELECT 1
       FROM pg_indexes
@@ -36,7 +35,7 @@ class BallotTable(val profile: JdbcProfile) {
     db.run(checkIndexQuery.headOption).map(_.isDefined)
   }
 
-  def createIndexIfNotExists(db: JdbcProfile#Backend#Database): Future[Unit] = {
+  def createIndexIfNotExists(db: JdbcProfile#Backend#Database)(implicit ec: ExecutionContext): Future[Unit] = {
     for {
       lotteryUserIndexExists <- indexExists(db, "idx_lottery_user")
       lotteryIndexExists <- indexExists(db, "idx_lottery_id")
@@ -57,7 +56,7 @@ class BallotTable(val profile: JdbcProfile) {
     } yield ()
   }
 
-  def createTableIfNotExists(db: JdbcProfile#Backend#Database): Future[Unit] = {
+  def createTableIfNotExists(db: JdbcProfile#Backend#Database)(implicit ec: ExecutionContext): Future[Unit] = {
     val setup = DBIO.seq(ballots.schema.createIfNotExists)
     db.run(setup).map(_ => ())
   }

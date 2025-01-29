@@ -11,12 +11,12 @@ import java.time.LocalDate
 import scala.concurrent.{ExecutionContext, Future}
 
 
-class LotteryScheduler(lotteryService: LotteryService)(implicit ex: ExecutionContext) {
+class LotteryScheduler(lotteryService: LotteryService)(implicit ec: ExecutionContext) {
 
   def startScheduler(): Unit = {
     val jobDataMap = new JobDataMap()
     jobDataMap.put("lotteryService", lotteryService)
-    jobDataMap.put("executionContext", ex)
+    jobDataMap.put("executionContext", ec)
 
     val job = JobBuilder.newJob(classOf[LotteryJob])
       .withIdentity("lotteryJob", "group1")
@@ -34,11 +34,11 @@ class LotteryScheduler(lotteryService: LotteryService)(implicit ex: ExecutionCon
   }
 }
 
-class LotteryJob extends Job with LazyLogging {
+class LotteryJob(implicit ec: ExecutionContext) extends Job with LazyLogging {
 
   override def execute(context: JobExecutionContext): Unit = {
     val lotteryService = context.getMergedJobDataMap.get("lotteryService").asInstanceOf[LotteryService]
-    implicit val ec = context.getMergedJobDataMap.get("executionContext").asInstanceOf[ExecutionContext]
+
 
     val today = LocalDate.now()
 

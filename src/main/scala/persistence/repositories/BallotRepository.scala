@@ -4,8 +4,7 @@ import models.Ballot
 import persistence.tables.BallotTable
 
 import java.util.UUID
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 trait BallotRepository {
 
@@ -20,8 +19,8 @@ trait BallotRepository {
 
 class SlickBallotRepository(
   db: slick.jdbc.SQLiteProfile.backend.Database,
-                             tables: BallotTable
-                           ) extends BallotRepository {
+  tables: BallotTable
+  )(implicit ec: ExecutionContext) extends BallotRepository {
 
   import tables.profile.api._
 

@@ -4,8 +4,7 @@ import slick.jdbc.JdbcProfile
 import models.{User, UserRole}
 
 import java.util.UUID
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class UserTable(val profile: JdbcProfile) {
 
@@ -13,7 +12,6 @@ class UserTable(val profile: JdbcProfile) {
   import persistence.utils.CustomColumnTypes._
 
   class Users(tag: Tag) extends Table[User](tag, "users") {
-
 
     def id = column[UUID]("id", O.PrimaryKey)
 
@@ -28,7 +26,7 @@ class UserTable(val profile: JdbcProfile) {
 
   val users = TableQuery[Users]
 
-  def createTableIfNotExists(db: JdbcProfile#Backend#Database): Future[Unit] = {
+  def createTableIfNotExists(db: JdbcProfile#Backend#Database)(implicit ec: ExecutionContext): Future[Unit] = {
     val setup = DBIO.seq(users.schema.createIfNotExists)
     db.run(setup).map(_ => ())
   }

@@ -5,7 +5,7 @@ import persistence.tables.LotteryTable
 
 import java.time.LocalDate
 import java.util.UUID
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 trait LotteryRepository {
 
@@ -18,7 +18,10 @@ trait LotteryRepository {
   def updateLotteryStatus(id: UUID, newStatus: LotteryStatus, winnerBallotIdOpt: Option[UUID]): Future[Int]
 }
 
-class SlickLotteryRepository(db: slick.jdbc.SQLiteProfile.backend.Database, tables: LotteryTable) extends LotteryRepository {
+class SlickLotteryRepository(
+  db: slick.jdbc.SQLiteProfile.backend.Database,
+  tables: LotteryTable) (implicit ec: ExecutionContext)
+  extends LotteryRepository {
   import tables.profile.api._
   import persistence.utils.CustomColumnTypes._
 

@@ -5,8 +5,7 @@ import slick.jdbc.JdbcProfile
 
 import java.time.LocalDate
 import java.util.UUID
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class LotteryTable(val profile: JdbcProfile) {
   import profile.api._
@@ -23,7 +22,7 @@ class LotteryTable(val profile: JdbcProfile) {
 
   val lotteries = TableQuery[Lotteries]
 
-  def createTableIfNotExists(db: JdbcProfile#Backend#Database): Future[Unit] = {
+  def createTableIfNotExists(db: JdbcProfile#Backend#Database)(implicit ec: ExecutionContext): Future[Unit] = {
     val setup = DBIO.seq(lotteries.schema.createIfNotExists)
     db.run(setup).map(_ => ())
   }
