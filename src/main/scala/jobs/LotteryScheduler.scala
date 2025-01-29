@@ -1,5 +1,6 @@
 package jobs
 
+import com.typesafe.scalalogging.LazyLogging
 import models.dto.ErrorResponse
 import models.{Lottery, LotteryStatus}
 import org.quartz._
@@ -33,7 +34,7 @@ class LotteryScheduler(lotteryService: LotteryService)(implicit ex: ExecutionCon
   }
 }
 
-class LotteryJob extends Job {
+class LotteryJob extends Job with LazyLogging {
 
   override def execute(context: JobExecutionContext): Unit = {
     val lotteryService = context.getMergedJobDataMap.get("lotteryService").asInstanceOf[LotteryService]
@@ -59,7 +60,7 @@ class LotteryJob extends Job {
       } yield ()
 
     val handleError: Throwable => Unit = (exception: Throwable) =>
-      println(s"Error: ${exception.getMessage}")
+      logger.error(s"Error: ${exception.getMessage}")
 
     lotteriesFuture.onComplete {
       case scala.util.Success(result) =>
@@ -71,7 +72,7 @@ class LotteryJob extends Job {
               case _ => ()
             }
           case Left(error) =>
-            println(s"Error retrieving lotteries: ${error.error}")
+            logger.error(s"Error retrieving lotteries: ${error.error}")
         }
       case scala.util.Failure(exception) =>
         handleError(exception)

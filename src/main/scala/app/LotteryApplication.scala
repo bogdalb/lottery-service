@@ -12,12 +12,13 @@ import routes.{LotteryRoutes, UserRoutes}
 import services.{LotteryService, UserService}
 import slick.jdbc.SQLiteProfile.api._
 import auth.JwtAuthImpl
+import com.typesafe.scalalogging.LazyLogging
 import jobs.LotteryScheduler
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success}
 
-object LotteryApplication extends App with DatabaseModule {
+object LotteryApplication extends App with DatabaseModule with LazyLogging {
   implicit val system: ActorSystem = ActorSystem("lottery-service")
   implicit val executionContext: ExecutionContextExecutor = system.dispatcher
 
@@ -58,16 +59,16 @@ object LotteryApplication extends App with DatabaseModule {
 
   private def createTableIfNotExists(tableName: String, creationAction: => scala.concurrent.Future[Unit]): Unit = {
     creationAction.onComplete {
-      case Success(_) => println(s"$tableName tables were successfully created or already exist.")
-      case Failure(exception) => println(s"Error creating $tableName tables: ${exception.getMessage}")
+      case Success(_) => logger.info(s"$tableName tables were successfully created or already exist.")
+      case Failure(exception) => logger.info(s"Error creating $tableName tables: ${exception.getMessage}")
     }
   }
 
   private def startServer(routes: akka.http.scaladsl.server.Route): Unit = {
     val serverBinding = Http().bindAndHandle(routes, "localhost", 8080)
     serverBinding.onComplete {
-      case Success(_) => println("Server started at http://localhost:8080")
-      case Failure(exception) => println(s"Failed to start server: ${exception.getMessage}")
+      case Success(_) => logger.info("Server started at http://localhost:8080")
+      case Failure(exception) => logger.error(s"Failed to start server: ${exception.getMessage}")
     }
   }
 }

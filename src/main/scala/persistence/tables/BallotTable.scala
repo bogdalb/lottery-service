@@ -21,20 +21,44 @@ class BallotTable(val profile: JdbcProfile) {
 
     def obtainedAt = column[LocalDateTime]("obtained_at")
 
-    def lotteryUserIndex = index("idx_lottery_user", (lotteryId, userId), unique = false)
-
-    def lotteryIndex = index("idx_lottery_id", lotteryId, unique = false)
-
     def * = (id, lotteryId, userId, obtainedAt) <> (Ballot.tupled, Ballot.unapply)
-
   }
 
   val ballots = TableQuery[Ballots]
+
+  def indexExists(db: JdbcProfile#Backend#Database, indexName: String): Future[Boolean] = {
+    val checkIndexQuery = sql"""
+      SELECT 1
+      FROM pg_indexes
+      WHERE indexname = $indexName
+    """.as[Int]
+
+    db.run(checkIndexQuery.headOption).map(_.isDefined)
+  }
+
+  def createIndexIfNotExists(db: JdbcProfile#Backend#Database): Future[Unit] = {
+    for {
+      lotteryUserIndexExists <- indexExists(db, "idx_lottery_user")
+      lotteryIndexExists <- indexExists(db, "idx_lottery_id")
+      _ <- {
+        if (!lotteryUserIndexExists) {
+          db.run(sql"CREATE INDEX idx_lottery_user ON ballots (lottery_id, user_id)".asUpdate)
+        } else {
+          Future.successful(())
+        }
+      }
+      _ <- {
+        if (!lotteryIndexExists) {
+          db.run(sql"CREATE INDEX idx_lottery_id ON ballots (lottery_id)".asUpdate)
+        } else {
+          Future.successful(())
+        }
+      }
+    } yield ()
+  }
 
   def createTableIfNotExists(db: JdbcProfile#Backend#Database): Future[Unit] = {
     val setup = DBIO.seq(ballots.schema.createIfNotExists)
     db.run(setup).map(_ => ())
   }
 }
-
-

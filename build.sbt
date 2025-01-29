@@ -22,6 +22,8 @@ lazy val root = (project in file("."))
       "com.auth0" % "java-jwt" % "4.0.0",
       "org.mindrot" % "jbcrypt" % "0.4",
       "org.quartz-scheduler" % "quartz" % "2.3.2",
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
+      "ch.qos.logback" % "logback-classic" % "1.5.6",
       "org.scalamock" %% "scalamock" % "5.2.0" % Test,
       "org.scalatest" %% "scalatest" % "3.2.10" % Test,
       "com.typesafe.akka" %% "akka-http-testkit" % "10.5.0" % Test,
