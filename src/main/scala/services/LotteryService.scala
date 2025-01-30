@@ -7,6 +7,7 @@ import persistence.repositories.{BallotRepository, LotteryRepository}
 import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.locks.ReentrantLock
 import scala.concurrent.{ExecutionContext, Future, blocking}
 
 class LotteryService(
@@ -15,10 +16,10 @@ class LotteryService(
   )(implicit ec: ExecutionContext) {
 
   private val UserBallotLimit = 100
-  private val userLocks = new ConcurrentHashMap[UUID, AnyRef]()
+  private val userLocks = new ConcurrentHashMap[UUID, ReentrantLock]()
 
-  private def getUserLock(userId: UUID): AnyRef = {
-    userLocks.computeIfAbsent(userId, _ => new Object)
+  private def getUserLock(userId: UUID): ReentrantLock = {
+    userLocks.computeIfAbsent(userId, _ => new ReentrantLock())
   }
 
   def addLottery(lotteryRequest: СreateLotteryRequest): Future[Either[ErrorResponse, СreateLotteryResponse]] = {
@@ -63,28 +64,28 @@ class LotteryService(
       lotteryRepo.getLotteryById(lotteryId).flatMap {
         case Some(lottery) if obtainedAt.isBefore(lottery.drawDate.atStartOfDay()) =>
           Future {
-            blocking {
-              userLock.synchronized {
-                ballotRepo.count(lotteryId, Some(userId)).flatMap { ballotsInLottery =>
-                  if ((ballotsInLottery + amount) > UserBallotLimit) {
-                    Future.successful(Left(s"Limit violation. User can submit at most ${UserBallotLimit - ballotsInLottery} ballots for this lottery"))
-                  } else {
-                    val ballotIds = Seq.fill(amount)(UUID.randomUUID())
-                    val ballots = ballotIds.map(Ballot(_, lotteryId, userId, obtainedAt))
-                    ballotRepo.add(ballots).map(_ => Right(ballotIds))
-                  }
+            userLock.lock()
+            try {
+              ballotRepo.count(lotteryId, Some(userId)).flatMap { ballotsInLottery =>
+                if ((ballotsInLottery + amount) > UserBallotLimit) {
+                  Future.successful(Left(s"Limit violation. User can submit at most ${UserBallotLimit - ballotsInLottery} ballots for this lottery"))
+                } else {
+                  val ballotIds = Seq.fill(amount)(UUID.randomUUID())
+                  val ballots = ballotIds.map(Ballot(_, lotteryId, userId, obtainedAt))
+                  ballotRepo.add(ballots).map(_ => Right(ballotIds))
                 }
               }
+            } finally {
+              userLock.unlock()
             }
           }.flatten
+
         case Some(_) =>
           Future.successful(Left("Cannot add ballots to a lottery that has already ended"))
         case None =>
           Future.successful(Left(s"Cannot find active lottery with id $lotteryId"))
       }.recover {
         case _ => Left("Error occurred while adding ballots to lottery")
-      }.andThen { case _ =>
-        userLocks.remove(userId)
       }
     }
   }
