@@ -1,14 +1,16 @@
 package services
 
+import com.github.benmanes.caffeine.cache.{Cache, Caffeine}
 import models.dto.{ErrorResponse, СreateLotteryRequest, СreateLotteryResponse}
 import models.{Ballot, Lottery, LotteryStatus}
 import persistence.repositories.{BallotRepository, LotteryRepository}
 
 import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
+
 import java.util.concurrent.locks.ReentrantLock
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import java.time.Duration
+import scala.concurrent.{ExecutionContext, Future}
 
 class LotteryService(
   lotteryRepo: LotteryRepository,
@@ -16,10 +18,22 @@ class LotteryService(
   )(implicit ec: ExecutionContext) {
 
   private val UserBallotLimit = 100
-  private val userLocks = new ConcurrentHashMap[UUID, ReentrantLock]()
+  private val userLocks: Cache[UUID, ReentrantLock] = Caffeine.newBuilder()
+    .expireAfterAccess(Duration.ofSeconds(10))
+    .build[UUID, ReentrantLock]()
 
-  private def getUserLock(userId: UUID): ReentrantLock = {
-    userLocks.computeIfAbsent(userId, _ => new ReentrantLock())
+  def getUserLock(userId: UUID): ReentrantLock = {
+    userLocks.get(userId, _ => new ReentrantLock())
+  }
+
+  def withUserLock[T](userId: UUID)(block: => Future[T]): Future[T] = {
+    val userLock = getUserLock(userId)
+    userLock.lock()
+    try {
+      block
+    } finally {
+      userLock.unlock()
+    }
   }
 
   def addLottery(lotteryRequest: СreateLotteryRequest): Future[Either[ErrorResponse, СreateLotteryResponse]] = {
@@ -50,35 +64,25 @@ class LotteryService(
     }
   }
 
-  def addBallotsToLottery(
-    lotteryId: UUID,
-    userId: UUID,
-    amount: Int
-  ): Future[Either[String, Seq[UUID]]] = {
+  def addBallotsToLottery(lotteryId: UUID, userId: UUID, amount: Int): Future[Either[String, Seq[UUID]]] = {
     val obtainedAt = LocalDateTime.now()
 
     if (amount <= 0) {
       Future.successful(Left("Ballots amount should be positive"))
     } else {
-      val userLock = getUserLock(userId)
       lotteryRepo.getLotteryById(lotteryId).flatMap {
         case Some(lottery) if obtainedAt.isBefore(lottery.drawDate.atStartOfDay()) =>
-          Future {
-            userLock.lock()
-            try {
-              ballotRepo.count(lotteryId, Some(userId)).flatMap { ballotsInLottery =>
-                if ((ballotsInLottery + amount) > UserBallotLimit) {
-                  Future.successful(Left(s"Limit violation. User can submit at most ${UserBallotLimit - ballotsInLottery} ballots for this lottery"))
-                } else {
-                  val ballotIds = Seq.fill(amount)(UUID.randomUUID())
-                  val ballots = ballotIds.map(Ballot(_, lotteryId, userId, obtainedAt))
-                  ballotRepo.add(ballots).map(_ => Right(ballotIds))
-                }
+          withUserLock(userId) {
+            ballotRepo.count(lotteryId, Some(userId)).flatMap { ballotsInLottery =>
+              if ((ballotsInLottery + amount) > UserBallotLimit) {
+                Future.successful(Left(s"Limit violation. User can submit at most ${UserBallotLimit - ballotsInLottery} ballots for this lottery"))
+              } else {
+                val ballotIds = Seq.fill(amount)(UUID.randomUUID())
+                val ballots = ballotIds.map(Ballot(_, lotteryId, userId, obtainedAt))
+                ballotRepo.add(ballots).map(_ => Right(ballotIds))
               }
-            } finally {
-              userLock.unlock()
             }
-          }.flatten
+          }
 
         case Some(_) =>
           Future.successful(Left("Cannot add ballots to a lottery that has already ended"))
