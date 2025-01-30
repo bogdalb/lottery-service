@@ -39,15 +39,13 @@ class UserRoutes(
         }
       },
       pathPrefix("users") {
-        path("list") {
-          get {
-            parameters("limit".as[Int].?, "offset".as[Int].?) { (limitOpt, offsetOpt) =>
-              val limit = limitOpt.getOrElse(100)
-              val offset = offsetOpt.getOrElse(0)
+        get {
+          parameters("limit".as[Int].?, "offset".as[Int].?) { (limitOpt, offsetOpt) =>
+            val limit = limitOpt.getOrElse(100)
+            val offset = offsetOpt.getOrElse(0)
 
-              authorizeRoles(Set("admin")) {
-                complete(service.listUsers(limit, offset))
-              }
+            authorizeRoles(Set("admin")) {
+              complete(service.listUsers(limit, offset))
             }
           }
         }

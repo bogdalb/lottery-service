@@ -89,13 +89,13 @@ class UserRoutesTest extends AnyWordSpec with Matchers with ScalaFutures with Sc
     }
   }
 
-  "GET /users/list" should {
+  "GET /users" should {
     "return a list of users for an admin" in {
       val users = Seq(User(UUID.randomUUID(), "user1@example.com", "passwordHash", UserRole.User))
       (mockJwtAuthService.decodeToken _).expects(adminToken).returning(Success((UUID.randomUUID(), "admin")))
       (mockService.listUsers _).expects(100, 0).returning(Future.successful(Right(users)))
 
-      Get("/users/list?limit=100&offset=0") ~> addHeader("Authorization", adminToken) ~> userRoutes.routes ~> check {
+      Get("/users?limit=100&offset=0") ~> addHeader("Authorization", adminToken) ~> userRoutes.routes ~> check {
         status shouldBe OK
         responseAs[Seq[User]] shouldEqual users
       }
@@ -105,7 +105,7 @@ class UserRoutesTest extends AnyWordSpec with Matchers with ScalaFutures with Sc
       (mockJwtAuthService.decodeToken _).expects(adminToken).returning(Success((UUID.randomUUID(), "admin")))
       (mockService.listUsers _).expects(100, 0).returning(Future.successful(Left(ErrorResponse("Failed to list users"))))
 
-      Get("/users/list?limit=100&offset=0") ~> addHeader("Authorization", adminToken) ~> userRoutes.routes ~> check {
+      Get("/users?limit=100&offset=0") ~> addHeader("Authorization", adminToken) ~> userRoutes.routes ~> check {
         status shouldBe OK
         responseAs[ErrorResponse].error shouldEqual "Failed to list users"
       }

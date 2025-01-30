@@ -121,14 +121,14 @@ class LotteryRoutesTest extends AnyWordSpec with Matchers with ScalaFutures with
       }
     }
 
-    "POST /lotteries/ballots/add" should {
+    "POST /lotteries/ballots" should {
 
       "allow user to add ballots to a lottery" in {
         (mockJwtAuthService.decodeToken _).expects(userToken).returning(Success((userId, "user")))
         (mockJwtAuthService.decodeToken _).expects(userToken).returning(Success((userId, "user")))
         (mockLotteryService.addBallotsToLottery _).expects(lotteryId, userId, submitBallotsRequest.ballotsNumber).returning(Future.successful(Right(ballotIds)))
 
-        Post("/lotteries/ballots/add", submitBallotsRequest) ~> addHeader("Authorization", userToken) ~> lotteryRoutes ~> check {
+        Post("/lotteries/ballots", submitBallotsRequest) ~> addHeader("Authorization", userToken) ~> lotteryRoutes ~> check {
           status shouldBe OK
         }
       }
@@ -136,7 +136,7 @@ class LotteryRoutesTest extends AnyWordSpec with Matchers with ScalaFutures with
       "deny adding ballots with invalid token" in {
         (mockJwtAuthService.decodeToken _).expects(invalidToken).returning(Failure(new IllegalArgumentException("Invalid token")))
 
-        Post("/lotteries/ballots/add", submitBallotsRequest) ~> addHeader("Authorization", invalidToken) ~> lotteryRoutes ~> check {
+        Post("/lotteries/ballots", submitBallotsRequest) ~> addHeader("Authorization", invalidToken) ~> lotteryRoutes ~> check {
           status shouldBe Forbidden
         }
       }

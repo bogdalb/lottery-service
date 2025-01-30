@@ -47,7 +47,7 @@ class LotteryRoutes(
             }
           }
         },
-        path("ballots" / "add") {
+        path("ballots") {
           post {
             authorizeRoles(Set("user")) {
               extractToken { token =>
