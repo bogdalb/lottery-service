@@ -34,11 +34,11 @@ class LotteryScheduler(lotteryService: LotteryService)(implicit ec: ExecutionCon
   }
 }
 
-class LotteryJob(implicit ec: ExecutionContext) extends Job with LazyLogging {
+class LotteryJob extends Job with LazyLogging {
 
   override def execute(context: JobExecutionContext): Unit = {
     val lotteryService = context.getMergedJobDataMap.get("lotteryService").asInstanceOf[LotteryService]
-
+    implicit val ec = context.getMergedJobDataMap.get("executionContext").asInstanceOf[ExecutionContext]
 
     val today = LocalDate.now()
 
@@ -77,7 +77,5 @@ class LotteryJob(implicit ec: ExecutionContext) extends Job with LazyLogging {
       case scala.util.Failure(exception) =>
         handleError(exception)
     }
-
   }
 }
-
