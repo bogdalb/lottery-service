@@ -7,7 +7,7 @@ import models.LotteryStatus
 import services.LotteryService
 import utils.JsonSupport
 import auth.{Authorizer, JwtAuth}
-import models.dto.{SubmitBallotsRequest, СreateLotteryRequest}
+import models.dto.{SubmitBallotsRequest, CreateLotteryRequest}
 
 import java.time.LocalDate
 import scala.concurrent.{ExecutionContext, Future}
@@ -41,7 +41,7 @@ class LotteryRoutes(
         pathEndOrSingleSlash {
           post {
             authorizeRoles(Set("admin")) {
-              entity(as[СreateLotteryRequest]) { lottery =>
+              entity(as[CreateLotteryRequest]) { lottery =>
                 complete(service.addLottery(lottery))
               }
             }

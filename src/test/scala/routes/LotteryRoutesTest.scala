@@ -8,7 +8,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import services.LotteryService
 import auth.JwtAuth
-import models.dto.{SubmitBallotsRequest, СreateLotteryRequest, СreateLotteryResponse}
+import models.dto.{SubmitBallotsRequest, CreateLotteryRequest, СreateLotteryResponse}
 import org.scalamock.scalatest.MockFactory
 import utils.JsonSupport
 import models.{Lottery, LotteryStatus}
@@ -35,7 +35,7 @@ class LotteryRoutesTest extends AnyWordSpec with Matchers with ScalaFutures with
 
   val lotteryId = UUID.randomUUID()
   val lottery = Lottery(lotteryId, LocalDate.now(), LotteryStatus.Active, None)
-  val createLotteryRequest = СreateLotteryRequest(lottery.drawDate)
+  val createLotteryRequest = CreateLotteryRequest(lottery.drawDate)
   val createLotteryResponse = СreateLotteryResponse(lottery.id)
   val submitBallotsRequest = SubmitBallotsRequest(lotteryId, 5)
   val ballotIds = Seq.fill(submitBallotsRequest.ballotsNumber)(UUID.randomUUID())

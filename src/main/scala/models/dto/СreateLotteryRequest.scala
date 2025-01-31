@@ -2,8 +2,7 @@ package models.dto
 
 import io.circe.generic.JsonCodec
 
-import java.time.{LocalDate, ZonedDateTime}
-import java.util.UUID
+import java.time.LocalDate
 
 @JsonCodec
-case class СreateLotteryRequest(drawDate: LocalDate)
+case class CreateLotteryRequest(drawDate: LocalDate)

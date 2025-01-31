@@ -1,32 +1,30 @@
 package services
 
 import com.github.benmanes.caffeine.cache.{Cache, Caffeine}
-import models.dto.{ErrorResponse, СreateLotteryRequest, СreateLotteryResponse}
+import models.dto.{CreateLotteryRequest, ErrorResponse, СreateLotteryResponse}
 import models.{Ballot, Lottery, LotteryStatus}
 import persistence.repositories.{BallotRepository, LotteryRepository}
 
-import java.time.{LocalDate, LocalDateTime}
+import java.time.{Duration, LocalDate, LocalDateTime}
 import java.util.UUID
-
 import java.util.concurrent.locks.ReentrantLock
-import java.time.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
 class LotteryService(
   lotteryRepo: LotteryRepository,
   ballotRepo: BallotRepository
-  )(implicit ec: ExecutionContext) {
+  )(implicit ec: ExecutionContext){
 
   private val UserBallotLimit = 100
   private val userLocks: Cache[UUID, ReentrantLock] = Caffeine.newBuilder()
     .expireAfterAccess(Duration.ofSeconds(10))
     .build[UUID, ReentrantLock]()
 
-  def getUserLock(userId: UUID): ReentrantLock = {
+  private def getUserLock(userId: UUID): ReentrantLock = {
     userLocks.get(userId, _ => new ReentrantLock())
   }
 
-  def withUserLock[T](userId: UUID)(block: => Future[T]): Future[T] = {
+  private def withUserLock[T](userId: UUID)(block: => Future[T]): Future[T] = {
     val userLock = getUserLock(userId)
     userLock.lock()
     try {
@@ -36,7 +34,7 @@ class LotteryService(
     }
   }
 
-  def addLottery(lotteryRequest: СreateLotteryRequest): Future[Either[ErrorResponse, СreateLotteryResponse]] = {
+  def addLottery(lotteryRequest: CreateLotteryRequest): Future[Either[ErrorResponse, СreateLotteryResponse]] = {
     val lotteryToCreate = Lottery(UUID.randomUUID(), lotteryRequest.drawDate, LotteryStatus.Active, None)
     lotteryRepo.addLottery(lotteryToCreate).map {
       case 1 => Right(СreateLotteryResponse(lotteryToCreate.id))
