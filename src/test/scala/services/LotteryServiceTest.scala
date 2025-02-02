@@ -1,6 +1,6 @@
 package services
 
-import models.dto.{ErrorResponse, SubmitBallotsRequest, CreateLotteryRequest, СreateLotteryResponse}
+import models.dto.{ErrorResponse, SubmitBallotsRequest, CreateLotteryRequest, CreateLotteryResponse}
 import models.{Ballot, Lottery, LotteryStatus}
 import persistence.repositories.{BallotRepository, LotteryRepository}
 import org.scalamock.scalatest.MockFactory
@@ -24,7 +24,7 @@ class LotteryServiceTest extends AnyWordSpec with Matchers with ScalaFutures wit
   val ballotId = UUID.randomUUID()
   val lottery = Lottery(lotteryId, LocalDate.now().plusDays(3), LotteryStatus.Active, None)
   val createLotteryRequest = CreateLotteryRequest(lottery.drawDate)
-  val createLotteryResponse = СreateLotteryResponse(lottery.id)
+  val createLotteryResponse = CreateLotteryResponse(lottery.id)
   val ballot = Ballot(ballotId, lotteryId, userId, LocalDateTime.now())
 
   "LotteryService" when {

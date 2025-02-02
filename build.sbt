@@ -28,7 +28,6 @@ lazy val root = (project in file("."))
       "org.scalamock" %% "scalamock" % "5.2.0" % Test,
       "org.scalatest" %% "scalatest" % "3.2.10" % Test,
       "com.typesafe.akka" %% "akka-http-testkit" % "10.5.0" % Test,
-      "com.typesafe.akka" %% "akka-actor-testkit-typed" % "2.8.0" % Test,
-      "org.xerial" % "sqlite-jdbc" % "3.48.0.0" % Test
+      "com.typesafe.akka" %% "akka-actor-testkit-typed" % "2.8.0" % Test
     )
   )

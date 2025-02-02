@@ -1,11 +1,13 @@
 package services
 
-import com.github.benmanes.caffeine.cache.{Cache, Caffeine}
-import models.dto.{CreateLotteryRequest, ErrorResponse, СreateLotteryResponse}
+import com.github.benmanes.caffeine.cache.Cache
+import models.dto.{CreateLotteryRequest, ErrorResponse, CreateLotteryResponse}
 import models.{Ballot, Lottery, LotteryStatus}
 import persistence.repositories.{BallotRepository, LotteryRepository}
+import utils.UserLockSupport
+import utils.UserLockSupport.createUserLockCache
 
-import java.time.{Duration, LocalDate, LocalDateTime}
+import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
 import java.util.concurrent.locks.ReentrantLock
 import scala.concurrent.{ExecutionContext, Future}
@@ -13,31 +15,15 @@ import scala.concurrent.{ExecutionContext, Future}
 class LotteryService(
   lotteryRepo: LotteryRepository,
   ballotRepo: BallotRepository
-  )(implicit ec: ExecutionContext){
+  )(implicit ec: ExecutionContext) extends UserLockSupport {
 
   private val UserBallotLimit = 100
-  private val userLocks: Cache[UUID, ReentrantLock] = Caffeine.newBuilder()
-    .expireAfterAccess(Duration.ofSeconds(10))
-    .build[UUID, ReentrantLock]()
+  override val userLocks: Cache[UUID, ReentrantLock] = createUserLockCache(10)
 
-  private def getUserLock(userId: UUID): ReentrantLock = {
-    userLocks.get(userId, _ => new ReentrantLock())
-  }
-
-  private def withUserLock[T](userId: UUID)(block: => Future[T]): Future[T] = {
-    val userLock = getUserLock(userId)
-    userLock.lock()
-    try {
-      block
-    } finally {
-      userLock.unlock()
-    }
-  }
-
-  def addLottery(lotteryRequest: CreateLotteryRequest): Future[Either[ErrorResponse, СreateLotteryResponse]] = {
+  def addLottery(lotteryRequest: CreateLotteryRequest): Future[Either[ErrorResponse, CreateLotteryResponse]] = {
     val lotteryToCreate = Lottery(UUID.randomUUID(), lotteryRequest.drawDate, LotteryStatus.Active, None)
     lotteryRepo.addLottery(lotteryToCreate).map {
-      case 1 => Right(СreateLotteryResponse(lotteryToCreate.id))
+      case 1 => Right(CreateLotteryResponse(lotteryToCreate.id))
       case _ => Left(ErrorResponse("Failed to add lottery"))
     }.recover {
       case _ => Left(ErrorResponse("Error occurred while adding lottery"))
@@ -141,6 +127,4 @@ class LotteryService(
       case _ => Left(ErrorResponse("Failed to update lottery status"))
     }
   }
-
-
 }
