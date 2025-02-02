@@ -27,15 +27,15 @@ class BallotTable(val profile: JdbcProfile) {
 
   def indexExists(db: JdbcProfile#Backend#Database, indexName: String)(implicit ec: ExecutionContext): Future[Boolean] = {
     val checkIndexQuery = sql"""
-      SELECT 1
-      FROM pg_indexes
-      WHERE indexname = $indexName
-    """.as[Int]
+        SELECT name
+          FROM sqlite_master
+          WHERE type = 'index' AND name = $indexName;
+        """.as[String]
 
     db.run(checkIndexQuery.headOption).map(_.isDefined)
   }
 
-  def createIndexIfNotExists(db: JdbcProfile#Backend#Database)(implicit ec: ExecutionContext): Future[Unit] = {
+  def createIndexIfNotExists(db: JdbcProfile#Backend#Database)(implicit ec: ExecutionContext): Future[Unit] =
     for {
       lotteryUserIndexExists <- indexExists(db, "idx_lottery_user")
       lotteryIndexExists <- indexExists(db, "idx_lottery_id")
@@ -54,10 +54,12 @@ class BallotTable(val profile: JdbcProfile) {
         }
       }
     } yield ()
-  }
 
   def createTableIfNotExists(db: JdbcProfile#Backend#Database)(implicit ec: ExecutionContext): Future[Unit] = {
     val setup = DBIO.seq(ballots.schema.createIfNotExists)
-    db.run(setup).map(_ => ())
+    for {
+      _ <- db.run(setup)
+      _ <- createIndexIfNotExists(db)
+    } yield ()
   }
 }
