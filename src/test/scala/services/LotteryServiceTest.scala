@@ -92,14 +92,6 @@ class LotteryServiceTest extends AnyWordSpec with Matchers with ScalaFutures wit
         }
       }
 
-      "return error if no lotteries found" in {
-        (lotteryRepo.listLotteries _).expects(Some(LotteryStatus.Active), None).returning(Future.successful(Seq.empty))
-
-        whenReady(lotteryService.listLotteries(Some(LotteryStatus.Active), None)) { result =>
-          result shouldBe Left(ErrorResponse("No lotteries found"))
-        }
-      }
-
       "return error if listing lotteries fails with exception" in {
         (lotteryRepo.listLotteries _).expects(Some(LotteryStatus.Active), None).returning(Future.failed(new Exception("DB error")))
 

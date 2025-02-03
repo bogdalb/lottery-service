@@ -40,10 +40,8 @@ class LotteryService(
   }
 
   def listLotteries(statusOpt: Option[LotteryStatus], drawDateOpt: Option[LocalDate]): Future[Either[ErrorResponse, Seq[Lottery]]] = {
-    lotteryRepo.listLotteries(statusOpt, drawDateOpt).map {
-      case lotteries if lotteries.nonEmpty => Right(lotteries)
-      case _ => Left(ErrorResponse("No lotteries found"))
-    }.recover {
+    lotteryRepo.listLotteries(statusOpt, drawDateOpt).map(Right(_))
+      .recover {
       case _ => Left(ErrorResponse("Error occurred while listing lotteries"))
     }
   }
