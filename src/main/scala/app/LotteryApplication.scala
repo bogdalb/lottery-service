@@ -13,7 +13,7 @@ import services.{LotteryService, UserService}
 import slick.jdbc.SQLiteProfile.api._
 import auth.JwtAuthImpl
 import com.typesafe.scalalogging.LazyLogging
-import jobs.LotteryScheduler
+import scheduling.LotteryScheduler
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success}

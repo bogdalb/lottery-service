@@ -1,40 +1,15 @@
-package jobs
+package scheduling.jobs
 
 import com.typesafe.scalalogging.LazyLogging
-import models.dto.ErrorResponse
 import models.{Lottery, LotteryStatus}
-import org.quartz._
-import org.quartz.impl.StdSchedulerFactory
+import models.dto.ErrorResponse
+import org.quartz.{Job, JobExecutionContext}
 import services.LotteryService
 
 import java.time.LocalDate
 import scala.concurrent.{ExecutionContext, Future}
 
-
-class LotteryScheduler(lotteryService: LotteryService)(implicit ec: ExecutionContext) {
-
-  def startScheduler(): Unit = {
-    val jobDataMap = new JobDataMap()
-    jobDataMap.put("lotteryService", lotteryService)
-    jobDataMap.put("executionContext", ec)
-
-    val job = JobBuilder.newJob(classOf[LotteryJob])
-      .withIdentity("lotteryJob", "group1")
-      .usingJobData(jobDataMap)
-      .build()
-
-    val trigger = TriggerBuilder.newTrigger()
-      .withIdentity("lotteryTrigger", "group1")
-      .withSchedule(CronScheduleBuilder.cronSchedule("0 0 0 * * ?"))
-      .build()
-
-    val scheduler = StdSchedulerFactory.getDefaultScheduler()
-    scheduler.start()
-    scheduler.scheduleJob(job, trigger)
-  }
-}
-
-class LotteryJob extends Job with LazyLogging {
+class LotteryDrawJob extends Job with LazyLogging {
 
   override def execute(context: JobExecutionContext): Unit = {
     val lotteryService = context.getMergedJobDataMap.get("lotteryService").asInstanceOf[LotteryService]
