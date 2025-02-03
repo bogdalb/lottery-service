@@ -24,6 +24,7 @@ class SlickUserRepository(db: slick.jdbc.SQLiteProfile.backend.Database, tables:
 
   override def list(limit: Int, offset: Int): Future[Seq[User]] = {
     val query = tables.users
+      .sortBy(_.registeredAt.asc)
       .drop(offset)
       .take(limit)
 

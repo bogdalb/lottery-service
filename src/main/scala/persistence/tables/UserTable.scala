@@ -3,6 +3,7 @@ package persistence.tables
 import slick.jdbc.JdbcProfile
 import models.{User, UserRole}
 
+import java.time.{LocalDateTime, ZonedDateTime}
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -21,7 +22,9 @@ class UserTable(val profile: JdbcProfile) {
 
     def role = column[UserRole]("role")
 
-    def * = (id, email, passwordHash, role) <> (User.tupled, User.unapply)
+    def registeredAt = column[LocalDateTime]("registered_at")
+
+    def * = (id, email, passwordHash, role, registeredAt) <> (User.tupled, User.unapply)
   }
 
   val users = TableQuery[Users]

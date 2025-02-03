@@ -1,13 +1,15 @@
 package services
 
 import auth.JwtAuth
-import models.dto.{ErrorResponse, LoginRequest, LoginResponse, RegisterRequest, RegistrationResponse}
+import models.dto.{ErrorResponse, LoginRequest, LoginResponse, RegisterRequest, RegistrationResponse, UserInfo}
 
 import scala.concurrent.{ExecutionContext, Future}
 import java.util.UUID
 import org.mindrot.jbcrypt.BCrypt
 import persistence.repositories.UserRepository
 import models.{User, UserRole}
+
+import java.time.LocalDateTime
 
 class UserService(repo: UserRepository, jwtAuth: JwtAuth)(implicit ec: ExecutionContext) {
 
@@ -17,7 +19,8 @@ class UserService(repo: UserRepository, jwtAuth: JwtAuth)(implicit ec: Execution
       id = UUID.randomUUID(),
       email = request.email,
       passwordHash = hashedPassword,
-      role = role
+      role = role,
+      registeredAt = LocalDateTime.now()
     )
 
     repo.add(user).map { _ =>
@@ -37,9 +40,9 @@ class UserService(repo: UserRepository, jwtAuth: JwtAuth)(implicit ec: Execution
     }
   }
 
-  def listUsers(limit: Int, offset: Int): Future[Either[ErrorResponse, Seq[User]] ] = {
+  def listUsers(limit: Int, offset: Int): Future[Either[ErrorResponse, Seq[UserInfo]] ] = {
     repo.list(limit, offset).map { users =>
-      Right(users)
+      Right(users.map(User.toUserInfo))
     }.recover {
       case ex: Exception =>
         Left(ErrorResponse(s"Failed to list users: ${ex.getMessage}"))

@@ -4,7 +4,7 @@ import akka.http.scaladsl.model.StatusCodes.{Forbidden, OK}
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import services.UserService
 import auth.JwtAuth
-import models.dto.{ErrorResponse, LoginRequest, LoginResponse, RegisterRequest, RegistrationResponse}
+import models.dto.{ErrorResponse, LoginRequest, LoginResponse, RegisterRequest, RegistrationResponse, UserInfo}
 import models.{User, UserRole}
 
 import scala.concurrent.Future
@@ -14,6 +14,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import utils.JsonSupport
 
+import java.time.LocalDateTime
 import java.util.UUID
 import scala.util.Success
 
@@ -91,13 +92,13 @@ class UserRoutesTest extends AnyWordSpec with Matchers with ScalaFutures with Sc
 
   "GET /users" should {
     "return a list of users for an admin" in {
-      val users = Seq(User(UUID.randomUUID(), "user1@example.com", "passwordHash", UserRole.User))
+      val users = Seq(UserInfo(UUID.randomUUID(), "user1@example.com", UserRole.User, LocalDateTime.now()))
       (mockJwtAuthService.decodeToken _).expects(adminToken).returning(Success((UUID.randomUUID(), "admin")))
       (mockService.listUsers _).expects(100, 0).returning(Future.successful(Right(users)))
 
       Get("/users?limit=100&offset=0") ~> addHeader("Authorization", adminToken) ~> userRoutes.routes ~> check {
         status shouldBe OK
-        responseAs[Seq[User]] shouldEqual users
+        responseAs[Seq[UserInfo]] shouldEqual users
       }
     }
 
