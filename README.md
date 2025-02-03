@@ -19,7 +19,7 @@ This project provides an API for managing lotteries and users, including functio
   - Retrieves a list of lotteries with optional filters by status and draw date (requires valid JWT token and accessible for both `admin` and `user` roles).
 
 - **GET /lotteries/{id}/ballots**
-  - etrieves a user's lottery ballots by lottery ID (requires valid JWT token and `user` role).
+  - Retrieves a user's lottery ballots by lottery ID (requires valid JWT token and `user` role).
 
 ### **User Routes**
 
