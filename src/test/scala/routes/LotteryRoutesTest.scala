@@ -8,12 +8,12 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import services.LotteryService
 import auth.JwtAuth
-import models.dto.{SubmitBallotsRequest, CreateLotteryRequest, CreateLotteryResponse}
+import models.dto.{CreateLotteryRequest, CreateLotteryResponse, SubmitBallotsRequest}
 import org.scalamock.scalatest.MockFactory
 import utils.JsonSupport
-import models.{Lottery, LotteryStatus}
+import models.{Ballot, Lottery, LotteryStatus}
 
-import java.time.LocalDate
+import java.time.{LocalDate, LocalDateTime, ZonedDateTime}
 import java.util.UUID
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
@@ -40,6 +40,7 @@ class LotteryRoutesTest extends AnyWordSpec with Matchers with ScalaFutures with
   val submitBallotsRequest = SubmitBallotsRequest(lotteryId, 5)
   val ballotIds = Seq.fill(submitBallotsRequest.ballotsNumber)(UUID.randomUUID())
   val userId = UUID.randomUUID()
+  val ballots = Seq.fill(2)(Ballot(UUID.randomUUID(), lotteryId, userId, LocalDateTime.now))
 
   "LotteryRoutes" should {
 
@@ -166,6 +167,43 @@ class LotteryRoutesTest extends AnyWordSpec with Matchers with ScalaFutures with
         }
       }
     }
+
+    "GET /lotteries/:id/ballots" should {
+
+      "allow user to get ballots for a lottery with limit and offset" in {
+        val lotteryId = UUID.randomUUID()
+
+        val limit = 2
+        val offset = 0
+
+        (mockJwtAuthService.decodeToken _).expects(userToken).returning(Success((userId, "user")))
+        (mockJwtAuthService.decodeToken _).expects(userToken).returning(Success((userId, "user")))
+        (mockLotteryService.listBallots _).expects(lotteryId, userId, limit, offset).returning(Future.successful(Right(ballots)))
+
+        Get(s"/lotteries/$lotteryId/ballots?limit=$limit&offset=$offset") ~> addHeader("Authorization", userToken) ~> lotteryRoutes ~> check {
+          status shouldBe OK
+          responseAs[Seq[Ballot]] shouldBe ballots
+        }
+      }
+
+      "deny user access to ballots for lottery without valid token" in {
+        val lotteryId = UUID.randomUUID()
+        val limit = 2
+        val offset = 0
+
+        Get(s"/lotteries/$lotteryId/ballots?limit=$limit&offset=$offset") ~> lotteryRoutes ~> check {
+          status shouldBe Unauthorized
+        }
+
+        (mockJwtAuthService.decodeToken _).expects(invalidToken).returning(Failure(new IllegalArgumentException("Invalid token")))
+
+        Get(s"/lotteries/$lotteryId/ballots?limit=$limit&offset=$offset") ~> addHeader("Authorization", invalidToken) ~> lotteryRoutes ~> check {
+          status shouldBe Forbidden
+        }
+      }
+
+    }
+
   }
 
 }

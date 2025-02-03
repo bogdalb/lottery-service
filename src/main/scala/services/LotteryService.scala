@@ -94,6 +94,16 @@ class LotteryService(
     }
   }
 
+  def listBallots(userId: UUID, lotteryId: UUID, limit: Int, offset: Int): Future[Either[ErrorResponse, Seq[Ballot]]] = {
+    if (limit <= 0 || offset < 0) {
+      Future.successful(Left(ErrorResponse("Limit must be positive and offset must be non-negative")))
+    } else {
+      ballotRepo.list(userId, lotteryId, limit, offset).map(Right(_)).recover {
+        case _ => Left(ErrorResponse("Error occurred while listing ballots"))
+      }
+    }
+  }
+
   private def processLotteryWithBallots(lotteryId: UUID): Future[Either[ErrorResponse, Lottery]] = {
     lotteryRepo.getLotteryById(lotteryId).flatMap {
       case Some(lottery) if lottery.status == LotteryStatus.Closing =>

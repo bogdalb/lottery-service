@@ -266,5 +266,36 @@ class LotteryServiceTest extends AnyWordSpec with Matchers with ScalaFutures wit
         }
       }
     }
+
+    "listing ballots for a lottery" should {
+      "successfully list ballots for a lottery" in {
+        val ballots = Seq(ballot)
+        (ballotRepo.list _).expects(lotteryId, userId, 100, 0).returning(Future.successful(ballots))
+
+        whenReady(lotteryService.listBallots(lotteryId, userId, 100, 0)) { result =>
+          result shouldBe Right(ballots)
+        }
+      }
+
+      "return error if listing ballots fails with exception" in {
+        (ballotRepo.list _).expects(lotteryId, userId, 100, 0).returning(Future.failed(new Exception("DB error")))
+
+        whenReady(lotteryService.listBallots(lotteryId, userId, 100, 0)) { result =>
+          result shouldBe Left(ErrorResponse("Error occurred while listing ballots"))
+        }
+      }
+
+      "return error if offset is negative" in {
+        whenReady(lotteryService.listBallots(lotteryId, userId, 100, -1)) { result =>
+          result shouldBe Left(ErrorResponse("Limit must be positive and offset must be non-negative"))
+        }
+      }
+
+      "return error if limit is non-positive" in {
+        whenReady(lotteryService.listBallots(lotteryId, userId, 0, 0)) { result =>
+          result shouldBe Left(ErrorResponse("Limit must be positive and offset must be non-negative"))
+        }
+      }
+    }
   }
 }

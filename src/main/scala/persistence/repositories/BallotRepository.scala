@@ -31,6 +31,7 @@ class SlickBallotRepository(
 
   override def list(userId: UUID, lotteryId: UUID, limit: Int, offset: Int): Future[Seq[Ballot]] = {
     val query = tables.ballots
+      .sortBy(_.obtainedAt.asc)
       .filter(row => row.userId === userId && row.lotteryId === lotteryId)
       .drop(offset)
       .take(limit)

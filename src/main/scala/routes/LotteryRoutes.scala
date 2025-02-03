@@ -2,12 +2,12 @@ package routes
 
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.{AuthorizationFailedRejection, Directive1, Route}
+import akka.http.scaladsl.server.{AuthorizationFailedRejection, Directive1, RequestContext, Route}
 import models.LotteryStatus
 import services.LotteryService
 import utils.JsonSupport
 import auth.{Authorizer, JwtAuth}
-import models.dto.{SubmitBallotsRequest, CreateLotteryRequest}
+import models.dto.{CreateLotteryRequest, SubmitBallotsRequest}
 
 import java.time.LocalDate
 import scala.concurrent.{ExecutionContext, Future}
@@ -36,49 +36,63 @@ class LotteryRoutes(
   }
 
   val routes: Route =
-    pathPrefix("lotteries") {
-      concat(
-        pathEndOrSingleSlash {
-          post {
-            authorizeRoles(Set("admin")) {
-              entity(as[CreateLotteryRequest]) { lottery =>
-                complete(service.addLottery(lottery))
-              }
+    concat(
+      path("lotteries") {
+        post {
+          authorizeRoles(Set("admin")) {
+            entity(as[CreateLotteryRequest]) { lottery =>
+              complete(service.addLottery(lottery))
             }
           }
-        },
-        path("ballots") {
-          post {
-            authorizeRoles(Set("user")) {
-              extractToken { token =>
-                onSuccess(Future.successful(jwtAuth.decodeToken(token))) {
-                  case Success((userId, _)) =>
-                    entity(as[SubmitBallotsRequest]) { request =>
-                      complete(service.addBallotsToLottery(request.lotteryId, userId, request.ballotsNumber))
-                    }
-                  case Failure(_) => complete(StatusCodes.Unauthorized, "Invalid token")
-                }
-              }
-            }
-          }
-        },
-        get {
-          path(JavaUUID) { id =>
-            authorizeRoles(Set("admin", "user")) {
-              complete(service.getLotteryById(id))
-            }
-          } ~
-            pathEndOrSingleSlash {
-              lotteryStatusParam("status") { statusOpt =>
-                localDateParam("drawDate") { drawDateOpt =>
-                  authorizeRoles(Set("admin", "user")) {
-                    complete(service.listLotteries(statusOpt, drawDateOpt))
-                  }
-                }
-              }
-            }
         }
-      )
-    }
-
+      },
+      path("lotteries") {
+        get {
+          authorizeRoles(Set("admin", "user")) {
+            lotteryStatusParam("status") { statusOpt =>
+              localDateParam("drawDate") { drawDateOpt =>
+                complete(service.listLotteries(statusOpt, drawDateOpt))
+              }
+            }
+          }
+        }
+      },
+      path("lotteries" / JavaUUID) { id =>
+        get {
+          authorizeRoles(Set("admin", "user")) {
+            complete(service.getLotteryById(id))
+          }
+        }
+      },
+      path("lotteries" / "ballots") {
+        post {
+          authorizeRoles(Set("user")) {
+            extractToken { token =>
+              onSuccess(Future.successful(jwtAuth.decodeToken(token))) {
+                case Success((userId, _)) =>
+                  entity(as[SubmitBallotsRequest]) { request =>
+                    complete(service.addBallotsToLottery(request.lotteryId, userId, request.ballotsNumber))
+                  }
+                case Failure(_) => complete(StatusCodes.Unauthorized, "Invalid token")
+              }
+            }
+          }
+        }
+      },
+      path("lotteries" / JavaUUID / "ballots") { lotteryId =>
+        parameters("limit".as[Int].?, "offset".as[Int].?) { (limitOpt, offsetOpt) =>
+          val limit = limitOpt.getOrElse(100)
+          val offset = offsetOpt.getOrElse(0)
+          authorizeRoles(Set("user")) {
+            extractToken { token =>
+              onSuccess(Future.successful(jwtAuth.decodeToken(token))) {
+                case Success((userId, _)) =>
+                  complete(service.listBallots(lotteryId, userId, limit, offset))
+                case Failure(_) => complete(StatusCodes.Unauthorized, "Invalid token")
+              }
+            }
+          }
+        }
+      }
+    )
 }
