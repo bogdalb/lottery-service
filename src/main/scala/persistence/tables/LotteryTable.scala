@@ -2,12 +2,11 @@ package persistence.tables
 
 import models.{Lottery, LotteryStatus}
 import slick.jdbc.JdbcProfile
-
 import java.time.LocalDate
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-class LotteryTable(val profile: JdbcProfile) {
+class LotteryTable(val profile: JdbcProfile) extends TableUtils {
   import profile.api._
   import persistence.utils.CustomColumnTypes._
 
@@ -23,9 +22,9 @@ class LotteryTable(val profile: JdbcProfile) {
   val lotteries = TableQuery[Lotteries]
 
   def createTableIfNotExists(db: JdbcProfile#Backend#Database)(implicit ec: ExecutionContext): Future[Unit] = {
-    val setup = DBIO.seq(lotteries.schema.createIfNotExists)
-    db.run(setup).map(_ => ())
+    for {
+      _ <- createTableIfNotExists(lotteries, db)
+    } yield ()
   }
 }
-
 
