@@ -10,7 +10,7 @@ trait BallotRepository {
 
   def add(ballots: Seq[Ballot]): Future[Int]
 
-  def list(userId: UUID, lotteryId: UUID, limit: Int, offset: Int): Future[Seq[Ballot]]
+  def list(lotteryId: UUID, userId: UUID, limit: Int, offset: Int): Future[Seq[Ballot]]
 
   def count(lotteryId: UUID, userIdOpt: Option[UUID]): Future[Int]
 
@@ -29,7 +29,7 @@ class SlickBallotRepository(
     db.run(action).map(_.getOrElse(0))
   }
 
-  override def list(userId: UUID, lotteryId: UUID, limit: Int, offset: Int): Future[Seq[Ballot]] = {
+  override def list(lotteryId: UUID, userId: UUID, limit: Int, offset: Int): Future[Seq[Ballot]] = {
     val query = tables.ballots
       .sortBy(_.obtainedAt.asc)
       .filter(row => row.userId === userId && row.lotteryId === lotteryId)
