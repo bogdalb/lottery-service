@@ -25,7 +25,7 @@ class UserTable(val profile: JdbcProfile) extends TableUtils {
   def createTableIfNotExists(db: JdbcProfile#Backend#Database)(implicit ec: ExecutionContext): Future[Unit] = {
     for {
       _ <- createTableIfNotExists(users, db)
-      _ <- createIndexIfNotExists(db, "idx_registered_at_user", "CREATE INDEX idx_registered_at_user ON users (registered_at)")
+      _ <- createIndexIfNotExists(db, "idx_users_registered_at", "CREATE INDEX idx_users_registered_at ON users (registered_at)")
     } yield ()
   }
 }
